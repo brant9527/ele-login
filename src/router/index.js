@@ -2,7 +2,7 @@ import Vue from 'vue'
 import VueRouter from 'vue-router'
 import Index from '../components/index.vue'
 import List from '../components/user/List.vue'
-import Msg from '../components/msg/msgs.vue'
+import Login from '../components/login/index.vue'
 import Order from '../components/order/orders.vue'
 import A1 from '../components/order/1.vue'
 import A2 from '../components/order/2.vue'
@@ -30,8 +30,8 @@ const routes = [
     component: List
   },
   {
-    path: '/msgs',
-    component: Msg
+    path: '/login',
+    component: Login
   },
   {
     path: '/orders',

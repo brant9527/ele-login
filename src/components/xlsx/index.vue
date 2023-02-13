@@ -1,13 +1,13 @@
 <template>
   <div class="index" v-loading.fullscreen.lock="fullscreenLoading" element-loading-text="拼命加载中...">
-
+      目前功能还在开发中，后续陆续开放
     <!-- 操作按钮 -->
-    <el-row>
+    <!-- <el-row>
         <input type="file" @change="importExcel(this)" id="importExcel" style="display: none" accept="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel" />
         <a id="exportExcel"></a>
         <el-button class="button" @click="btnImportClick">导入Excel</el-button>
         <el-button class="button" @click="btnExportClick(excelData)">导出Excel</el-button>
-    </el-row>
+    </el-row> -->
     <!-- 错误提示 -->
     <el-dialog title="提示" v-model="errorDialog">
       <span>{{errorMsg}}</span>
@@ -17,13 +17,13 @@
     </el-dialog>
 
     <!-- 展示数据 -->
-    <el-table :data="excelData" tooltip-effect="dark" border style="width: 100%;margin:0 auto;">
+    <!-- <el-table :data="excelData" tooltip-effect="dark" border style="width: 100%;margin:0 auto;">
       <el-table-column label="名称" prop="name" show-overflow-tooltip></el-table-column>
       <el-table-column label="分量" prop="size" show-overflow-tooltip></el-table-column>
       <el-table-column label="口味" prop="taste" show-overflow-tooltip></el-table-column>
       <el-table-column label="单价(元)" prop="price" show-overflow-tooltip></el-table-column>
       <el-table-column label="剩余(份)" prop="remain" show-overflow-tooltip></el-table-column>
-    </el-table>
+    </el-table> -->
   </div>
 </template>
 

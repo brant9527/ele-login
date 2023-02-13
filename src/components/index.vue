@@ -1,25 +1,15 @@
 <template>
   <div>
-
-        <el-carousel indicator-position="outside">
-            <el-carousel-item v-for="item in imgs" :key="item">
-                <el-image  :src="item"  fit="fill" style="width:1366px"></el-image>
-            </el-carousel-item>
-        </el-carousel>
+        有优化建议或商务合作可加微信18959292098联系，我们会即使满足客户需求
   </div>
 </template>
 
 <script>
-import homeImg1 from '../assets/indexImgs/1.jpg'
-import homeImg2 from '../assets/indexImgs/2.jpg'
-import homeImg3 from '../assets/indexImgs/3.jpg'
-import homeImg4 from '../assets/indexImgs/4.jpg'
-import homeImg5 from '../assets/indexImgs/5.jpg'
-import homeImg6 from '../assets/indexImgs/6.jpg'
+
 export default {
   data () {
     return {
-      imgs: [homeImg1, homeImg2, homeImg3, homeImg4, homeImg5, homeImg6]
+
     }
   }
 
