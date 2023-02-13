@@ -6,5 +6,6 @@ module.exports = {
 
       // nodeModulesPath: ['../../node_modules', './node_modules']// 这里是多个node_modules路径，按自己需要配置即可
     }
-  }
+  },
+  lintOnSave:false
 }
