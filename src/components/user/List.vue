@@ -3,11 +3,11 @@
     <el-input
       type="textarea"
       :autosize="{ minRows: 20, maxRows: 100 }"
-      placeholder="请输入账号密码，格式：账号+密码（输入完成后回车另起一行）"
+      placeholder="请输入账号密码，格式：账号,密码,支付密码（输入完成后回车另起一行）"
       v-model="userList"
     >
     </el-input>
-    <el-button @click="save" class="btn" type="primary" >保存</el-button>
+    <el-button @click="save" class="btn" type="primary" >保存本地</el-button>
   </div>
 </template>
 
@@ -19,6 +19,7 @@ export default {
     };
   },
   created() {
+    console.log(window.localStorage.getItem("userList"))
     this.userList = window.localStorage.getItem("userList");
   },
   methods: {

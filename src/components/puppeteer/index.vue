@@ -1,7 +1,7 @@
 <template>
   <div class="hello">
-    <input v-model="searchContent" @keydown.enter="search" class="input" />
-    <button @click="search(searchContent)">启动</button>
+    <input v-model="searchContent" @keydown.enter="start" class="input" />
+    <button @click="start()">启动</button>
   </div>
 </template>
 
@@ -10,10 +10,7 @@ const puppeteer = require("puppeteer-core");
 // const electron = require('electron')
 // const puppeteer = require('puppeteer-core')
 // const { spawn } = require('child_process')
-function dumpFrameTree(frame, indent) {
-  console.log(indent + frame.url());
-  for (let child of frame.childFrames()) dumpFrameTree(child, indent + "  ");
-}
+
 export default {
   name: "HelloWorld",
   data() {
@@ -26,10 +23,53 @@ export default {
       page2: {},
       target: {},
       browser: {},
+      userAccouts: [],
+      currentUser: {},
+      index: 0,
     };
   },
+  watch: {
+    index(newVal, oldVal) {
+      console.log(newVal, this.userAccouts.length);
+      if (newVal && newVal < this.userAccouts.length) {
+        setTimeout(() => {
+          
+          this.search();
+        }, 1000);
+      }
+    },
+  },
   methods: {
-    async search(context) {
+    async start() {
+      this.clearInit();
+     
+      await this.getUsers();
+
+      await this.search();
+    },
+
+    async getUsers() {
+      const userString = localStorage.getItem("userList");
+      const userStringList = userString.split("\n");
+      this.userAccouts = userStringList.map((item) => {
+        let items = item.split(",");
+        let temp = {
+          account: items[0],
+          password: items[1],
+          payPassword: items[2],
+        };
+        return temp;
+      });
+    },
+
+    async getTarget(target) {
+      let that = this;
+
+      if (target.type() === "page") {
+        that.page2 = await target.page();
+      }
+    },
+    async search() {
       const browser = (this.browser = await puppeteer.launch({
         defaultViewport: {
           width: 850,
@@ -37,7 +77,7 @@ export default {
         },
         headless: false,
         args: [
-          "--start-fullscreen",
+          // "--start-fullscreen",
           "--no-sandbox",
           "--disable-blink-features=AutomationControlled",
           // "--disable-features=site-per-process",
@@ -47,11 +87,25 @@ export default {
 
         // 除受控提示
         ignoreDefaultArgs: ["--enable-automation"],
-        executablePath: context,
+        executablePath: this.searchContent,
         // "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       }));
-      this.target = await browser.target();
-      const page = (this.page = await browser.newPage());
+      this.target = await this.browser.target();
+
+      try {
+        await this.login();
+        await this.withdraw();
+        await this.cardwait();
+        await this.zfbPassword();
+      } catch (error) {
+      } finally {
+        await this.init();
+      }
+    },
+    async login() {
+      this.currentUser = this.userAccouts[this.index];
+      console.log(this.currentUser);
+      const page = (this.page = await this.browser.newPage());
       await page.evaluateOnNewDocument(() => {
         Object.defineProperty(navigator, "plugins", {
           get: () => [1, 2, 3, 4],
@@ -86,14 +140,7 @@ export default {
 
       console.log("等待中");
 
-      let that = this;
-      browser.on("targetcreated", async (target) => {
-        console.log("target", target.type());
-        if (target.type() === "page") {
-          that.page2 = await target.page();
-        }
-      });
-
+      await this.browser.on("targetcreated", this.getTarget);
       let frame = await page.frames().find((f) => f.name() === "");
       console.log("等待中frame", frame);
 
@@ -102,11 +149,11 @@ export default {
       await childframe2.waitFor(3000);
 
       await childframe2.click("#fm-login-id"); //
-      await childframe2.type("#fm-login-id", "fossafrong@163.com", {
+      await childframe2.type("#fm-login-id", this.currentUser.account, {
         delay: Math.random() * 10,
       });
       await childframe2.click("#fm-login-password"); // '百度一下'按钮的id. 注释3
-      await childframe2.type("#fm-login-password", "w921533w", {
+      await childframe2.type("#fm-login-password", this.currentUser.password, {
         delay: Math.random() * 10,
       });
       await childframe2.waitFor(1000);
@@ -116,41 +163,49 @@ export default {
       frame = await childframe2.childFrames();
       console.log("frame=>", frame);
       const slideFrame = frame[0];
-      if (slideFrame) {
-        const slidebtn = await slideFrame.$(".btn_slide");
-        console.log("slidebtn=>", slidebtn.boundingBox());
-        const { x, y } = await slidebtn.boundingBox();
-        console.log(x, y);
-        slidebtn.boundingBox();
-        // const btnPosition = await this.getBtnPosition(slideFrame)
-        const spanInfo = await slidebtn.boundingBox();
-        slidebtn.focus();
-        await page.mouse.move(spanInfo.x + 21, spanInfo.y + 11);
-        await page.waitFor(1000);
-        await page.mouse.down();
-        await page.mouse.move(spanInfo.x + 271, spanInfo.y + 11, {
-          steps: 20,
-        });
+      try {
+        if (slideFrame) {
+          const slidebtn = await slideFrame.$(".btn_slide");
+          console.log("slidebtn=>", slidebtn.boundingBox());
+          const { x, y } = await slidebtn.boundingBox();
+          console.log(x, y);
+          slidebtn.boundingBox();
+          // const btnPosition = await this.getBtnPosition(slideFrame)
+          const spanInfo = await slidebtn.boundingBox();
+          slidebtn.focus();
+          await page.mouse.move(spanInfo.x + 21, spanInfo.y + 11);
+          await page.waitFor(1000);
+          await page.mouse.down();
+          await page.mouse.move(spanInfo.x + 271, spanInfo.y + 11, {
+            steps: 20,
+          });
 
-        await page.mouse.up();
+          await page.mouse.up();
+        }
+        await childframe2.click("#fm-login-submit"); // 点击登录按钮
+      } catch (error) {
+        console.log(error);
       }
-      await childframe2.click("#fm-login-submit"); // 点击登录按钮
-
       await page.waitForSelector(".next-menu-sub-menu-wrapper");
-      await this.withdraw();
-      await this.cardwait();
-      await this.zfbPassword();
     },
     async withdraw(page) {
       // 点击资金中心
       await this.page.waitFor(3000);
-      const dialog = this.page.waitForSelector(".next-dialog-close", {
-        timeout: 1000,
-      });
-      console.log("dialog=>", dialog);
-      if (dialog) {
-        await this.page.click(".next-dialog-close");
-      }
+      try {
+        const dialog = this.page.waitForSelector(
+          "body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-wrapper > div > div > a",
+          {
+            timeout: 2000,
+          }
+        );
+        console.log("dialog=>", dialog);
+        if (dialog) {
+          await this.page.click(
+            "body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-wrapper > div > div > a"
+          );
+        }
+      } catch (error) {}
+
       await this.page.waitFor(1000);
 
       // 點擊資金
@@ -168,6 +223,8 @@ export default {
     },
     async cardwait() {
       await this.page2.bringToFront();
+      await this.browser.off("targetcreated", this.getTarget);
+
       // 等待转账按钮
       let btnZZ =
         "#root > div > section > section > div > main > div > div > div > div > div > section > section > div > main > div > div > div > div > div > div > div > div > div > div > div.ant-col.ant-col-17 > div:nth-child(2) > div > div > div > div.ant-col.ant-col-16 > section > section.tr > button.ant-btn.mw80.mr8";
@@ -199,7 +256,9 @@ export default {
       console.log(html);
       const money = html.replace(" USD", "");
       console.log(money);
-
+      if (money == 0) {
+        throw new Error("Sync Error");
+      }
       await this.page2.type("#applyAmount", money, {
         delay: Math.random() * 10,
       });
@@ -215,7 +274,7 @@ export default {
     },
     async zfbPassword() {
       await this.page2.waitForSelector("#password");
-      await this.page2.type("#password", "cw1992", {
+      await this.page2.type("#password", this.currentUser.payPassword, {
         delay: Math.random() * 10,
       });
       await this.page2.click(
@@ -223,35 +282,40 @@ export default {
       );
       await this.page2.waitFor(4000);
       await this.page2.keyboard.type("123456");
-      // 获取所有iframe
-      // let iframes = await this.page2.frames().find((f) => f.name() === "");
 
-      const iframes = await this.page2.$$("iframe");
+      try {
+        const dialog = await this.page2.$(".ui-dialog");
+        console.log("dialog=>", dialog.boundingBox());
+        const { x, y } = await dialog.boundingBox();
+        console.log(x, y);
 
-      console.log(iframes);
-      // const elementHandle = await page.$(
-      //   'iframe[src="https://render.antfin.com"]'
-      // );
-      const iframe = iframes[6];
+        const spanInfo = await dialog.boundingBox();
 
-      // await childframe.waitForSelector('#data > div > div', { timeout: 0 })
-      // console.log('等待结束')
-      // await frame.click(btn);
-      // await iframe.evaluate(() => {
+        await this.page2.mouse.move(spanInfo.x + 461, spanInfo.y + 215);
+        await this.page2.waitFor(2000);
+        await this.page2.mouse.down();
 
-      //       const btns = [];
-      //       btns.forEach(btn => btn.click());
-      //   });
-      // console.log("结束");
-      // await element.click();
-      await this.page2.evaluate(() => {
-        setTimeout(() => {
-         
-          document.querySelector("#root > div > div > div > div > form > div.verify-actions___1maNo > button").click();
-        }, 2000);
+        await this.page2.mouse.up();
+        await this.page2.waitFor(1000);
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    async init() {
+      this.page.evaluate(()=>[
+        document.cookie=''
+   
+      ])
+      this.page.close && this.page.close();
+      this.page2.close && this.page2.close();
+      await this.browser.off("targetcreated", this.getTarget);
+      this.browser.close()
 
-        //这里.parentElement()是获取最近的parentElement，如果期望获取的父元素不是最近的父元素，那么需要多次调用parentElement
-      });
+      ++this.index;
+      console.log("this.index", this.index);
+    },
+    async clearInit() {
+      this.index = 0;
     },
   },
 };
