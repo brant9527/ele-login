@@ -10,9 +10,10 @@ const puppeteer = require("puppeteer-core");
 // const electron = require('electron')
 // const puppeteer = require('puppeteer-core')
 // const { spawn } = require('child_process')
-
+import ws from "../../plugins/socket.js";
+console.log(ws);
 export default {
-  name: "HelloWorld",
+  name: "puppeteer",
   data() {
     return {
       searchContent:
@@ -26,23 +27,34 @@ export default {
       userAccouts: [],
       currentUser: {},
       index: 0,
+      verificationCode: "",
     };
   },
   watch: {
     index(newVal, oldVal) {
       console.log(newVal, this.userAccouts.length);
       if (newVal && newVal < this.userAccouts.length) {
-        setTimeout(() => {
-          
-          this.search();
+        setTimeout(async () => {
+          await this.search();
         }, 1000);
+      }
+    },
+    verificationCode(newVal) {
+      if (newVal) {
+        this.submit();
       }
     },
   },
   methods: {
+    wsMsg(data) {
+      console.log("ws=>", data);
+      const codeRegex = /\b\d{6}\b/;
+      const match = data.match(codeRegex);
+      if (match && match[0].length > 0) this.verificationCode = data;
+    },
     async start() {
       this.clearInit();
-     
+
       await this.getUsers();
 
       await this.search();
@@ -63,18 +75,13 @@ export default {
     },
 
     async getTarget(target) {
-      let that = this;
-
-      if (target.type() === "page") {
-        that.page2 = await target.page();
+      if (target && target.type() === "page") {
+        this.page2 = await target.page();
       }
     },
     async search() {
       const browser = (this.browser = await puppeteer.launch({
-        defaultViewport: {
-          width: 850,
-          height: 800,
-        },
+        defaultViewport: null,
         headless: false,
         args: [
           // "--start-fullscreen",
@@ -97,9 +104,13 @@ export default {
         await this.withdraw();
         await this.cardwait();
         await this.zfbPassword();
+        // 最后一步，输入与提交短信
       } catch (error) {
+        console.log("異常結束", error);
+        if (error.message == "nomoney") {
+          await this.init();
+        }
       } finally {
-        await this.init();
       }
     },
     async login() {
@@ -257,7 +268,7 @@ export default {
       const money = html.replace(" USD", "");
       console.log(money);
       if (money == 0) {
-        throw new Error("Sync Error");
+        throw new Error("nomoney");
       }
       await this.page2.type("#applyAmount", money, {
         delay: Math.random() * 10,
@@ -281,8 +292,10 @@ export default {
         "#root > div > section > section > div > main > div > div > div > div > div > section > section > div > main > div > div > div > div > div > div > div > div > div > div.ant-card-body > div.transferAccountWrapper___2jPXM > form > div.footerControl___15hTG > div > div > div > div > button.ant-btn.ant-btn-primary.ant-btn-lg.mw120"
       );
       await this.page2.waitFor(4000);
-      await this.page2.keyboard.type("123456");
-
+    },
+    async submit() {
+      await this.page2.keyboard.type(this.verificationCode);
+      // 弹框的确定按钮位置
       try {
         const dialog = await this.page2.$(".ui-dialog");
         console.log("dialog=>", dialog.boundingBox());
@@ -292,7 +305,7 @@ export default {
         const spanInfo = await dialog.boundingBox();
 
         await this.page2.mouse.move(spanInfo.x + 461, spanInfo.y + 215);
-        await this.page2.waitFor(2000);
+
         await this.page2.mouse.down();
 
         await this.page2.mouse.up();
@@ -300,23 +313,30 @@ export default {
       } catch (error) {
         console.log(error);
       }
+      await this.init();
     },
     async init() {
-      this.page.evaluate(()=>[
-        document.cookie=''
-   
-      ])
+      this.page.evaluate(() => [(document.cookie = "")]);
       this.page.close && this.page.close();
       this.page2.close && this.page2.close();
       await this.browser.off("targetcreated", this.getTarget);
-      this.browser.close()
-
+      this.browser.close();
+      this.verificationCode = "";
       ++this.index;
       console.log("this.index", this.index);
     },
     async clearInit() {
       this.index = 0;
     },
+  },
+  created() {
+    ws.connect();
+    ws.setCallBack(this.wsMsg);
+    console.log(ws, "设置ws");
+  },
+  destroyed() {
+    console.log("销毁");
+    ws.close();
   },
 };
 </script>
