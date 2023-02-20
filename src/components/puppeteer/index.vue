@@ -35,6 +35,8 @@ export default {
       console.log(newVal, this.userAccouts.length);
       if (newVal && newVal < this.userAccouts.length) {
         setTimeout(async () => {
+          console.log("改变index，进入下一页");
+
           await this.search();
         }, 1000);
       }
@@ -56,6 +58,24 @@ export default {
       this.clearInit();
 
       await this.getUsers();
+      const browser = (this.browser = await puppeteer.launch({
+        defaultViewport: null,
+        headless: false,
+        args: [
+          // "--start-fullscreen",
+          "--no-sandbox",
+          "--disable-blink-features=AutomationControlled",
+          // "--disable-features=site-per-process",
+          "--disable-web-security",
+          "--disable-features=IsolateOrigins,site-per-process",
+        ],
+
+        // 除受控提示
+        ignoreDefaultArgs: ["--enable-automation"],
+        executablePath: this.searchContent,
+        // "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      }));
+      this.target = await this.browser.target();
 
       await this.search();
     },
@@ -80,30 +100,12 @@ export default {
       }
     },
     async search() {
-      const browser = (this.browser = await puppeteer.launch({
-        defaultViewport: null,
-        headless: false,
-        args: [
-          // "--start-fullscreen",
-          "--no-sandbox",
-          "--disable-blink-features=AutomationControlled",
-          // "--disable-features=site-per-process",
-          "--disable-web-security",
-          "--disable-features=IsolateOrigins,site-per-process",
-        ],
-
-        // 除受控提示
-        ignoreDefaultArgs: ["--enable-automation"],
-        executablePath: this.searchContent,
-        // "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-      }));
-      this.target = await this.browser.target();
-
       try {
         await this.login();
         await this.withdraw();
         await this.cardwait();
         await this.zfbPassword();
+
         // 最后一步，输入与提交短信
       } catch (error) {
         console.log("異常結束", error);
@@ -114,8 +116,10 @@ export default {
       }
     },
     async login() {
+      console.log("登录");
       this.currentUser = this.userAccouts[this.index];
       console.log(this.currentUser);
+
       const page = (this.page = await this.browser.newPage());
       await page.evaluateOnNewDocument(() => {
         Object.defineProperty(navigator, "plugins", {
@@ -157,7 +161,7 @@ export default {
 
       const childframe2 = (await frame.childFrames())[0];
       await childframe2.waitForSelector("#fm-login-submit", { timeout: 0 });
-      await childframe2.waitFor(3000);
+   
 
       await childframe2.click("#fm-login-id"); //
       await childframe2.type("#fm-login-id", this.currentUser.account, {
@@ -197,49 +201,83 @@ export default {
       } catch (error) {
         console.log(error);
       }
-      await page.waitForSelector(".next-menu-sub-menu-wrapper");
+      await page.waitForSelector(".next-menu-sub-menu-wrapper", { timeout: 0 });
     },
     async withdraw(page) {
       // 点击资金中心
       await this.page.waitFor(3000);
+
       try {
-        const dialog = this.page.waitForSelector(
-          "body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-wrapper > div > div > a",
-          {
-            timeout: 2000,
-          }
-        );
+        const nextBtn = " #___reactour > div:nth-child(4) > div > span";
+        const dialog = this.page.waitForSelector(nextBtn, {
+          timeout: 2000,
+        });
         console.log("dialog=>", dialog);
         if (dialog) {
-          await this.page.click(
-            "body > div.next-overlay-wrapper.opened > div.next-overlay-inner.next-dialog-wrapper > div > div > a"
-          );
+          await this.page.click(nextBtn);
         }
-      } catch (error) {}
+      } catch (error) {
+        console.log(error);
+      }
 
       await this.page.waitFor(1000);
-
+      const menuLeftStr =
+        "#ae-layout > div.aside-menu > div > ul > li:nth-child(8) > div";
+      await this.page.waitFor(menuLeftStr, { timeout: 0 });
       // 點擊資金
-      await this.page.click(
-        "#ae-layout > div.aside-menu > div > ul > li:nth-child(8) > div"
-      );
+      await this.page.click(menuLeftStr);
       await this.page.waitFor(3000);
       // 點擊資金中心
       await this.page.click(
         "#ae-layout > div.aside-menu > div > ul > li:nth-child(8) > ul > li:nth-child(1)"
       );
-      await this.page.waitForSelector("#Button_l417bsmb > button");
+      // 提现按钮
+      await this.page.waitForSelector("#frozenMoney > div > span", {
+        timeout: 0,
+      });
+      // 抓取金额
+      await this.page.waitFor(3000);
+
+      const htmlHas = await this.page.$eval(
+        "#totalMoeny > div > span",
+        (e) => e.innerText
+      );
+      console.log(htmlHas);
+      const moneyLeft = htmlHas.replace("$", "");
+      console.log(moneyLeft);
+      const htmlFrozen = await this.page.$eval(
+        "#frozenMoney > div > span",
+        (e) => e.innerText
+      );
+
+      const moneyFrozen = htmlFrozen.replace("$", "");
+      console.log("金额=》", htmlFrozen, moneyFrozen);
+      if (moneyLeft == moneyFrozen) throw new Error("nomoney");
+
       await this.page.click("#Button_l417bsmb > button");
       await this.page.waitFor(10000);
     },
     async cardwait() {
       await this.page2.bringToFront();
+      try {
+        const nextBtn = "#___reactour > div:nth-child(4) > div > span";
+        const dialog = this.page2.waitForSelector(nextBtn, {
+          timeout: 2000,
+        });
+        console.log("dialog=>", dialog);
+        if (dialog) {
+          await this.page2.click(nextBtn);
+        }
+      } catch (error) {
+        console.log(error);
+      }
+
       await this.browser.off("targetcreated", this.getTarget);
 
       // 等待转账按钮
       let btnZZ =
         "#root > div > section > section > div > main > div > div > div > div > div > section > section > div > main > div > div > div > div > div > div > div > div > div > div > div.ant-col.ant-col-17 > div:nth-child(2) > div > div > div > div.ant-col.ant-col-16 > section > section.tr > button.ant-btn.mw80.mr8";
-      await this.page2.waitForSelector(btnZZ);
+      await this.page2.waitForSelector(btnZZ, { timeout: 0 });
       await this.page2.waitFor(5000);
 
       await this.page2.click(btnZZ); // 点击该链接将间接导致导航(跳转)
@@ -248,7 +286,9 @@ export default {
       // 點擊資金
       const btnOptions =
         "#root > div > section > section > div > main > div > div > div > div > div > section > section > div > main > div > div.ant-pro-grid-content > div > div > div > div > div > div > div > div.ant-card-body > section > form > div > div.ant-col.ant-form-item-control.ant-col-xs-24.ant-col-sm-16";
-      await this.page2.waitForSelector(btnOptions);
+      await this.page2.waitForSelector(btnOptions, { timeout: 0 });
+      await this.page2.waitFor(1000);
+
       await this.page2.click(btnOptions);
       await this.page2.waitFor(1000);
       // 下拉勾选第一个
@@ -262,14 +302,15 @@ export default {
       // 點擊資金中心 const html = await page.$eval('.main-container', e => e.outerHTML);
       const p =
         "#root > div > section > section > div > main > div > div > div > div > div > section > section > div > main > div > div.ant-pro-grid-content > div > div > div > div > div > div > div > div.ant-card-body > div.ant-row > div > form > div:nth-child(4) > div:nth-child(2) > div.ant-col.ant-form-item-control.ant-col-xs-24.ant-col-sm-16 > div > div > p";
-      await this.page2.waitForSelector(p);
+      await this.page2.waitForSelector(p, { timeout: 0 });
       const html = await this.page2.$eval(p, (e) => e.innerText);
       console.log(html);
       const money = html.replace(" USD", "");
       console.log(money);
-      if (money == 0) {
-        throw new Error("nomoney");
-      }
+      // 不需要校验
+      // if (money == 0) {
+      //   throw new Error("nomoney");
+      // }
       await this.page2.type("#applyAmount", money, {
         delay: Math.random() * 10,
       });
@@ -284,7 +325,7 @@ export default {
       await this.page2.click(btn_next);
     },
     async zfbPassword() {
-      await this.page2.waitForSelector("#password");
+      await this.page2.waitForSelector("#password", { timeout: 0 });
       await this.page2.type("#password", this.currentUser.payPassword, {
         delay: Math.random() * 10,
       });
@@ -315,12 +356,32 @@ export default {
       }
       await this.init();
     },
+    async logout() {
+      await this.page.bringToFront();
+      // const userSelector =
+      //   "#dada-wrapper > div.header-menu > div.nav-csp > div > div.navigator-component_information > div > div > div > div.tab-component-information_person";
+      // await this.page.click(userSelector);
+      // const logBtn =
+      //   "body > div.next-overlay-wrapper.opened > div > div > div.info-component_item > div:nth-child(13)";
+      // await this.page.waitForSelector(logBtn);
+      // await this.page.click(logBtn);
+      const client = await this.page.target().createCDPSession();
+      await client.send("Network.clearBrowserCookies");
+      await this.page.waitFor(1000);
+    },
     async init() {
-      this.page.evaluate(() => [(document.cookie = "")]);
-      this.page.close && this.page.close();
-      this.page2.close && this.page2.close();
+      try {
+        await this.logout();
+      } catch (error) {
+        console.log(error);
+      }
+      console.log("关闭前p1,p2", this.page, this.page2);
+      await (this.page.close && this.page.close());
+      await (this.page2.close && this.page2.close());
+      this.page = {};
+      this.page2 = {};
       await this.browser.off("targetcreated", this.getTarget);
-      this.browser.close();
+
       this.verificationCode = "";
       ++this.index;
       console.log("this.index", this.index);
